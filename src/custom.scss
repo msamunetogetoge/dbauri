@@ -1,0 +1,93 @@
+// src/custom.scss
+$theme-colors: (
+  "primary": #007199,
+  "secondary": #6c757d,
+  "success": #28a745,
+  "info": #17a2b8,
+  "warning": #ffc107,
+  "danger": #dc3545,
+  "light": #f8f9fa,
+  "dark": #343a40
+);
+
+$primary: map-get($theme-colors, "primary");
+
+$btn-primary-bg: #007199;
+$btn-primary-border: #007199;
+$btn-primary-hover-bg: darken(#007199, 10%);
+$btn-primary-hover-border: darken(#007199, 10%);
+
+$input-border-color: #007199;
+$input-focus-border-color: lighten(#007199, 20%);
+$input-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
+
+$select-border-color: #007199;
+$select-focus-border-color: lighten(#007199, 20%);
+$select-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
+
+.table-primary {
+  --bs-table-bg: #007199;
+  --bs-table-striped-bg: lighten(#007199, 10%);
+  --bs-table-hover-bg: lighten(#007199, 15%);
+  --bs-table-active-bg: lighten(#007199, 20%);
+  --bs-table-border-color: #007199;
+}
+
+body {
+  background-color: #f8f9fa;
+}
+
+.btn-outline-primary {
+  background-color: #fff;
+  color: lighten(#007199, 20%);
+  border-color: $primary;
+
+  &:hover {
+    background-color: $primary;
+    color: #fff;
+  }
+
+  &:focus,
+  &:active,
+  &:focus-visible {
+    box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.5);
+  }
+}
+
+
+.navbar {
+  border-bottom: 1px solid $primary;
+  background-color: $btn-primary-bg;
+  .navbar-brand, .nav-link {
+    color: #fff;
+    padding: 0.5rem;
+    &:hover{
+      color: #fff;
+    }
+  }
+}
+
+.sidebar {
+  background-color: #fff;
+  border-right: 1px solid $primary;
+  height: 100vh;
+  padding: 0.5rem;
+
+  color: #000;
+}
+
+.content {
+  margin-left: 250px;
+  padding: 1rem;
+}
+
+.table {
+  background-color: #fff;
+}
+
+.table th,
+.table td {
+  vertical-align: middle;
+}
+
+@import "bootstrap/scss/bootstrap";

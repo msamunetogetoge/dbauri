@@ -1,0 +1,13 @@
+# ベースイメージとしてPostgreSQLを使用
+FROM postgres:16
+
+# 初期化スクリプトをコンテナにコピー
+COPY init.sql /docker-entrypoint-initdb.d/
+
+# デフォルトで使うデータベースの環境変数を設定
+ENV POSTGRES_DB=mydatabase
+ENV POSTGRES_USER=myuser
+ENV POSTGRES_PASSWORD=mypassword
+
+# ポートをエクスポーズ
+EXPOSE 5432

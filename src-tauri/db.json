@@ -1,0 +1,6 @@
+[
+  {
+    "connectionName": "def",
+    "connectionString": "postgresql://myuser:mypassword@localhost:5432/mydatabase"
+  }
+]
