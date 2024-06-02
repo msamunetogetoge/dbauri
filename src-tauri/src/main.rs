@@ -1,3 +1,6 @@
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::State;
@@ -10,8 +13,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#[cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
