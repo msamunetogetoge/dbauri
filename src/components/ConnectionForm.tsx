@@ -13,7 +13,7 @@ interface ConnectionInfoDetail {
   name?: string;
   user?: string;
   password?: string;
-  ipAddress?: string;
+  host?: string;
   port?: number;
   dbName?: string;
 }
@@ -23,13 +23,15 @@ interface ConnectionInfo {
   connectionString: string;
 }
 
-const ConnectionForm: Component = () => {
+const ConnectionForm: Component<{
+  setCurrentDbName: (name: string) => void;
+}> = (props) => {
   const [connectionInfo, setConnectionInfo] =
     createSignal<ConnectionInfoDetail>({
       name: "",
       user: "",
       password: "",
-      ipAddress: "",
+      host: "",
       port: 5432,
       dbName: "",
     });
@@ -47,15 +49,9 @@ const ConnectionForm: Component = () => {
 
   createEffect(() => {
     const info = connectionInfo();
-    if (
-      info.user &&
-      info.password &&
-      info.ipAddress &&
-      info.port &&
-      info.dbName
-    ) {
+    if (info.user && info.password && info.host && info.port && info.dbName) {
       console.debug("createEffect connectionString is updated");
-      const connStr = `postgresql://${info.user}:${info.password}@${info.ipAddress}:${info.port}/${info.dbName}`;
+      const connStr = `postgresql://${info.user}:${info.password}@${info.host}:${info.port}/${info.dbName}`;
       setConnectionString(connStr);
     }
   });
@@ -83,6 +79,7 @@ const ConnectionForm: Component = () => {
         await invoke<string>("save_connection_info", {
           connectionInfo: info,
         });
+        props.setCurrentDbName(info.connectionName);
       } else {
         setAlertMessage("Connection string is not in the correct format.");
         setAlertVariant("danger");
@@ -101,7 +98,18 @@ const ConnectionForm: Component = () => {
       (conn) => conn.connectionName === selected
     );
     if (connection) {
-      setConnectionString(connection.connectionString);
+      const [user, password, host, port, dbName] = connection.connectionString
+        .replace("postgresql://", "")
+        .split(/[:@/]/);
+
+      setConnectionInfo({
+        name: connection.connectionName,
+        user,
+        password,
+        host: host,
+        port: parseInt(port),
+        dbName,
+      });
     }
   };
 
@@ -171,9 +179,9 @@ const ConnectionForm: Component = () => {
 
                 <Form.Control
                   type="text"
-                  placeholder="IP Address"
-                  value={connectionInfo().ipAddress}
-                  onInput={handleInputChange("ipAddress")}
+                  placeholder="host"
+                  value={connectionInfo().host}
+                  onInput={handleInputChange("host")}
                 />
 
                 <Form.Control

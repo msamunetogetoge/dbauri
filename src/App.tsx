@@ -7,11 +7,18 @@ import QueryEditor from "./components/QueryEditor";
 // import SchemaList from "./components/SchemaList";
 
 const App: Component = () => {
+  const [currentDbName, setCurrentDbName] = createSignal<string>("");
   return (
     <div>
       <nav class="navbar navbar-expand-lg navbar-light d-flex justify-content-between p-2">
         <div class="navbar-brand">DBauri</div>
-        <ConnectionForm />
+
+        <div class="d-flex align-items-center connection-info">
+          <Show when={currentDbName() !== ""}>
+            <div class="me-2">接続中: {currentDbName()}</div>
+          </Show>
+          <ConnectionForm setCurrentDbName={setCurrentDbName} />
+        </div>
       </nav>
 
       <div class="d-flex">

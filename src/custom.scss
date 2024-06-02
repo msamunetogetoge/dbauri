@@ -58,9 +58,13 @@ body {
 .navbar {
   border-bottom: 1px solid $primary;
   background-color: $btn-primary-bg;
+  .connection-info{
+    color: #fff;
+  }
   .navbar-brand, .nav-link {
     color: #fff;
     padding: 0.5rem;
+    
     &:hover{
       color: #fff;
     }
