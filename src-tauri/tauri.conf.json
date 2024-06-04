@@ -23,7 +23,10 @@
       {
         "title": "dbauri",
         "width": 1024,
-        "height": 768
+        "height": 768,
+        "resizable":true,
+        "minimizable": true,
+        "maximizable": true
       }
     ],
     "security": {
