@@ -9,8 +9,8 @@ import QueryEditor from "./components/QueryEditor";
 const App: Component = () => {
   const [currentDbName, setCurrentDbName] = createSignal<string>("");
   return (
-    <div>
-      <nav class="navbar navbar-expand-lg navbar-light d-flex justify-content-between p-2">
+    <>
+      <nav class="navbar navbar-expand-lg navbar-light d-flex justify-content-between sticky-top p-0">
         <div class="navbar-brand">DBauri</div>
 
         <div class="d-flex align-items-center connection-info">
@@ -21,22 +21,19 @@ const App: Component = () => {
         </div>
       </nav>
 
-      <div class="d-flex">
+      <main class="d-flex">
         {/* <SchemaList /> */}
         <Container fluid class="content">
-          <Row>
-            <Col md={12}>
-              <QueryEditor />
-            </Col>
-          </Row>
+          <QueryEditor />
+
           {/* <Row>
             <Col md={12}>
               <TableDetails />
             </Col>
           </Row> */}
         </Container>
-      </div>
-    </div>
+      </main>
+    </>
   );
 };
 
