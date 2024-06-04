@@ -25,6 +25,7 @@ $select-border-color: #007199;
 $select-focus-border-color: lighten(#007199, 20%);
 $select-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
 
+
 .table-primary {
   --bs-table-bg: #007199;
   --bs-table-striped-bg: lighten(#007199, 10%);
@@ -32,7 +33,6 @@ $select-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
   --bs-table-active-bg: lighten(#007199, 20%);
   --bs-table-border-color: #007199;
 }
-
 body {
   background-color: #f8f9fa;
 }
@@ -54,8 +54,11 @@ body {
   }
 }
 
-
+main{
+  height: calc(100vh - 56px)
+}
 .navbar {
+
   border-bottom: 1px solid $primary;
   background-color: $btn-primary-bg;
   .connection-info{
@@ -83,6 +86,8 @@ body {
 .content {
   margin-left: 250px;
   padding: 1rem;
+  height: "100%";
+  padding:"1rem"
 }
 
 .table {
@@ -93,5 +98,8 @@ body {
 .table td {
   vertical-align: middle;
 }
+
+
+
 
 @import "bootstrap/scss/bootstrap";

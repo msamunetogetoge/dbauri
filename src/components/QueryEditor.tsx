@@ -1,5 +1,5 @@
 import { Component, Show, createSignal, onMount } from "solid-js";
-import { Button, Alert } from "solid-bootstrap";
+import { Button, Alert, Table, Container } from "solid-bootstrap";
 import { invoke } from "@tauri-apps/api/tauri";
 import { EditorView, basicSetup } from "codemirror";
 import { sql } from "@codemirror/lang-sql";
@@ -53,29 +53,33 @@ const QueryEditor: Component = () => {
     }
   };
   return (
-    <div>
-      {/* <Form.Control
-        as="textarea"
-        rows={3}
-        placeholder="Enter your SQL query here..."
-        value={query()}
-        onInput={(e) => setQuery(e.currentTarget.value)}
-        class="mb-3"
-      /> */}
+    <div
+      style={{ height: "100%", display: "flex", "flex-direction": "column" }}
+    >
       <div
         ref={editorContainer}
-        style={{ border: "1px solid #ccc", height: "200px" }}
+        style={{
+          border: "1px solid #ccc",
+          "min-height": "200px",
+          flex: "0 1 auto",
+        }}
       ></div>
 
-      <Button onClick={handleQueryExecute} variant="primary">
+      <Button
+        onClick={handleQueryExecute}
+        variant="primary"
+        class="mt-3"
+        style={{ "max-width": "10rem" }}
+      >
         Execute Query
       </Button>
-      <div class="mt-3">
-        <Show when={queryError() !== ""}>
-          <Alert variant={"danger"}>{queryError()}</Alert>
-        </Show>
-        <Show when={queryResult().rows.length > 0}>
-          <table class="table table-striped">
+
+      <Show when={queryError() !== ""}>
+        <Alert variant={"danger"}>{queryError()}</Alert>
+      </Show>
+      <Show when={queryResult().rows.length > 0}>
+        <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+          <Table striped bordered hover class="mt-3">
             <thead>
               <tr>
                 {queryResult().columns.map((column, idx) => (
@@ -92,9 +96,9 @@ const QueryEditor: Component = () => {
                 </tr>
               ))}
             </tbody>
-          </table>
-        </Show>
-      </div>
+          </Table>
+        </div>
+      </Show>
     </div>
   );
 };
