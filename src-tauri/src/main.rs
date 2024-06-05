@@ -4,15 +4,20 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use tauri::State;
-use tokio_postgres::{Client, NoTls};
+use tokio_postgres::types::Type;
+use tokio_postgres::{Client, NoTls, Row};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
+use serde_json::{json};
 use anyhow::Result;
 
 use std::fs::OpenOptions;
 use std::io::Write;
 
+use chrono::{NaiveDate, NaiveDateTime, NaiveTime, DateTime, Utc};
+use uuid::Uuid;
 
+
+use rust_decimal::Decimal;
 
 
 
@@ -55,7 +60,7 @@ async fn connect_to_database(connection_info: Option<ConnectionInfo>,state: Stat
         Err("Invalid connection string".into())
     }
 
-   
+
 }
 
 #[tauri::command]
@@ -105,7 +110,7 @@ async fn execute_query(sql: String, state: State<'_, AppState>) -> Result<String
 
         let columns: Vec<String> = rows[0].columns().iter().map(|col| col.name().to_string()).collect();
         let data: Vec<Vec<String>> = rows.iter().map(|row| row_to_json(row)).collect();
-        
+
         let result = json!({
             "columns": columns,
             "rows": data
@@ -118,24 +123,35 @@ async fn execute_query(sql: String, state: State<'_, AppState>) -> Result<String
 }
 
 
-fn row_to_json(row: &tokio_postgres::Row) -> Vec<String> {
-    (0..row.len())
-        .map(|i| {
-            let value: Result<String, _> = row.try_get(i);
-            match value {
-                Ok(val) => val,
-                Err(_) => {
-                    let int_value: Result<i32, _> = row.try_get(i);
-                    match int_value {
-                        Ok(val) => val.to_string(),
-                        Err(_) => "NULL".to_string(),
-                    }
-                }
-            }
-        })
-        .collect()
+
+fn row_to_json(row: &Row) -> Vec<String> {
+    row.columns().iter().enumerate().map(|(i, col)| {
+        value_to_string(col.type_(), row, i)
+    }).collect()
 }
 
+fn value_to_string(value: &Type, row: &Row, idx: usize) -> String {
+    // row.try_get(idx).map_or("NULL".to_string(), |v| v.to_string())
+    match *value {
+        Type::BOOL => row.try_get::<_, bool>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::INT2 => row.try_get::<_, i16>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::INT4 => row.try_get::<_, i32>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::INT8 => row.try_get::<_, i64>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::FLOAT4 => row.try_get::<_, f32>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::FLOAT8  => row.try_get::<_, f64>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::NUMERIC => row.try_get::<_,Decimal>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::VARCHAR | Type::TEXT | Type::NAME  => row.try_get::<_, String>(idx).map_or("NULL".to_string(), |v| v),
+        Type::TIMESTAMP => row.try_get::<_, NaiveDateTime>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::TIMESTAMPTZ => row.try_get::<_, DateTime<Utc>>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::DATE => row.try_get::<_, NaiveDate>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::TIME => row.try_get::<_, NaiveTime>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::UUID => row.try_get::<_, Uuid>(idx).map_or("NULL".to_string(), |v| v.to_string()),
+        Type::JSON | Type::JSONB => "JSON IS NOT SUPPORTED".to_string(),
+        Type::BYTEA => "BYTEA IS NOT SUPPORTED".to_string(),
+
+        _ => "Unsupported type".to_string(),
+    }
+}
 fn main() {
 
     tauri::Builder::default()
@@ -148,52 +164,3 @@ fn main() {
         .expect("error while running tauri application");
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio;
-    use std::fs::{self, File};
-    use std::io::Write;
-    use tempfile::tempdir;
-
-    fn setup_test_config() -> tempfile::TempDir {
-        let dir = tempdir().unwrap();
-        let config_dir = dir.path().join("C:/Users/kenji/code/rust/dbauri/config");
-        fs::create_dir_all(&config_dir).unwrap();
-        let config_file_path = config_dir.join("db.json");
-
-        let config_content = r#"
-        {
-            "default": "postgresql://myuser:mypassword@localhost:5432/mydatabase"
-        }
-        "#;
-
-        let mut config_file = File::create(config_file_path).unwrap();
-        config_file.write_all(config_content.as_bytes()).unwrap();
-
-        dir
-    }
-
-    // #[tokio::test]
-    // async fn test_connect_to_database_with_valid_info() {
-    //     let connection_info = Some("postgresql://myuser:mypassword@localhost:5432/mydatabase".to_string());
-    //     let result = connect_to_database(connection_info.).await;
-    //     assert!(result.is_ok());
-    // }
-
-    // #[tokio::test]
-    // async fn test_connect_to_database_with_invalid_info() {
-    //     let _test_config = setup_test_config(); // 一時的な設定ファイルを作成
-    //     let connection_info = Some("invalid_connection_string".to_string());
-    //     let result = connect_to_database(connection_info).await;
-    //     assert!(result.is_err());
-    // }
-
-    // #[tokio::test]
-    // async fn test_connect_to_database_with_none() {
-    //     let _test_config = setup_test_config(); // 一時的な設定ファイルを作成
-
-    //     let result = connect_to_database(None).await;
-    //     assert_eq!(result.unwrap(), "Connection successful".to_string());
-    // }
-}
