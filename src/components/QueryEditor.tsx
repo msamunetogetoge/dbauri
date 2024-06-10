@@ -54,7 +54,12 @@ const QueryEditor: Component = () => {
   };
   return (
     <div
-      style={{ height: "100%", display: "flex", "flex-direction": "column" }}
+      style={{
+        height: "100%",
+        display: "flex",
+        "flex-direction": "column",
+        gap: "1rem",
+      }}
     >
       <div
         ref={editorContainer}
@@ -62,6 +67,7 @@ const QueryEditor: Component = () => {
           border: "1px solid #ccc",
           "min-height": "200px",
           flex: "0 1 auto",
+          overflow: "auto",
         }}
       ></div>
 
@@ -69,7 +75,7 @@ const QueryEditor: Component = () => {
         onClick={handleQueryExecute}
         variant="primary"
         class="mt-3"
-        style={{ "max-width": "10rem" }}
+        style={{ "max-width": "10rem", "align-self": "flex-start" }}
       >
         Execute Query
       </Button>
@@ -78,7 +84,7 @@ const QueryEditor: Component = () => {
         <Alert variant={"danger"}>{queryError()}</Alert>
       </Show>
       <Show when={queryResult().rows.length > 0}>
-        <div style={{ flex: "1 1 auto", overflow: "auto" }}>
+        <div style={{ flex: "0 1 auto", overflow: "auto" }}>
           <Table striped bordered hover class="mt-3">
             <thead>
               <tr>
