@@ -140,7 +140,7 @@ fn value_to_string(value: &Type, row: &Row, idx: usize) -> String {
         Type::FLOAT4 => row.try_get::<_, f32>(idx).map_or("NULL".to_string(), |v| v.to_string()),
         Type::FLOAT8  => row.try_get::<_, f64>(idx).map_or("NULL".to_string(), |v| v.to_string()),
         Type::NUMERIC => row.try_get::<_,Decimal>(idx).map_or("NULL".to_string(), |v| v.to_string()),
-        Type::VARCHAR | Type::TEXT| Type::CHAR | Type::NAME  => row.try_get::<_, String>(idx).map_or("NULL".to_string(), |v| v),
+        Type::VARCHAR | Type::TEXT| Type::CHAR |Type::BPCHAR | Type::NAME  => row.try_get::<_, String>(idx).map_or("NULL".to_string(), |v| v),
         Type::TIMESTAMP => row.try_get::<_, NaiveDateTime>(idx).map_or("NULL".to_string(), |v| v.to_string()),
         Type::TIMESTAMPTZ => row.try_get::<_, DateTime<Utc>>(idx).map_or("NULL".to_string(), |v| v.to_string()),
         Type::DATE => row.try_get::<_, NaiveDate>(idx).map_or("NULL".to_string(), |v| v.to_string()),
