@@ -65,7 +65,6 @@ const QueryEditor: Component = () => {
         ref={editorContainer}
         style={{
           border: "1px solid #ccc",
-          "min-height": "200px",
           flex: "0 1 auto",
           overflow: "auto",
         }}
