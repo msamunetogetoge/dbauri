@@ -7,7 +7,7 @@ use tauri::State;
 use tokio_postgres::types::Type;
 use tokio_postgres::{Client, NoTls, Row};
 use serde::{Deserialize, Serialize};
-use serde_json::{json};
+use serde_json::json;
 use anyhow::Result;
 
 use std::fs::OpenOptions;

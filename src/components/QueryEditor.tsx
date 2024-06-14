@@ -1,5 +1,5 @@
-import { Component, Show, createSignal, onMount } from "solid-js";
-import { Button, Alert, Table, Container } from "solid-bootstrap";
+import { Component, Show, createEffect, createSignal, onMount } from "solid-js";
+import { Button, Alert, Table } from "solid-bootstrap";
 import { invoke } from "@tauri-apps/api/tauri";
 import { EditorView, basicSetup } from "codemirror";
 import { sql } from "@codemirror/lang-sql";
@@ -18,12 +18,14 @@ const QueryEditor: Component = () => {
     columns: [],
     rows: [],
   });
+  const [showQuertyEditor, setShowQueryEditor] = createSignal(true);
 
+  let editor: EditorView | undefined;
   let editorContainer: HTMLDivElement | undefined;
 
   onMount(() => {
     if (editorContainer) {
-      const editor = new EditorView({
+      editor = new EditorView({
         doc: query(),
         extensions: [
           basicSetup,
@@ -52,6 +54,34 @@ const QueryEditor: Component = () => {
       setQueryResult({ columns: [], rows: [] });
     }
   };
+
+  const toggleEditorVisibility = () => {
+    if (showQuertyEditor()) {
+      editor = undefined;
+    }
+    setShowQueryEditor(!showQuertyEditor());
+  };
+
+  createEffect(() => {
+    if (showQuertyEditor() && editorContainer && !editor) {
+      // エディターを再度開いたときに内容を復元
+      editor = new EditorView({
+        doc: query(),
+        extensions: [
+          basicSetup,
+          sql(),
+          keymap.of([indentWithTab]),
+          EditorView.updateListener.of((update) => {
+            if (update.docChanged) {
+              setQuery(update.state.doc.toString());
+            }
+          }),
+        ],
+        parent: editorContainer,
+      });
+    }
+  });
+
   return (
     <div
       style={{
@@ -61,6 +91,14 @@ const QueryEditor: Component = () => {
         gap: "1rem",
       }}
     >
+      <Button
+        onClick={toggleEditorVisibility}
+        variant="secondary"
+        style={{ "align-self": "flex-start" }}
+      >
+        {showQuertyEditor() ? "Hide Editor" : "Show Editor"}
+      </Button>
+
       <div
         ref={editorContainer}
         style={{
@@ -68,7 +106,9 @@ const QueryEditor: Component = () => {
           flex: "0 1 auto",
           overflow: "auto",
         }}
-      ></div>
+      >
+        <Show when={showQuertyEditor()}> </Show>
+      </div>
 
       <Button
         onClick={handleQueryExecute}
