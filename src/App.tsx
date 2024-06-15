@@ -1,6 +1,5 @@
 import {
   Component,
-  Show,
   Switch,
   Match,
   createSignal,
