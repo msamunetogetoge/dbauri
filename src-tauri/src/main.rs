@@ -98,6 +98,15 @@ async fn connect_to_database(connection_info: Option<ConnectionInfo>,state: Stat
 }
 
 #[tauri::command]
+async fn disconnect_from_database(state: State<'_, AppState>, app_handle: tauri::AppHandle) -> Result<String, String> {
+    let mut client_lock = state.client.lock().await;
+    *client_lock = None;
+    app_handle.emit_all("database-connection-status", "disconnected").unwrap();
+
+    Ok("Disconnected successfully".to_string())
+}
+
+#[tauri::command]
 async fn save_connection_info(connection_info: ConnectionInfo) -> Result<(), String> {
     let file_path = "db.json";
     let mut connections = match std::fs::read_to_string(file_path) {
@@ -193,7 +202,7 @@ fn main() {
         client: Arc::new(Mutex::new(None)),
     })
         .invoke_handler(tauri::generate_handler![greet])
-        .invoke_handler(tauri::generate_handler![connect_to_database, execute_query,save_connection_info,get_saved_connections])
+        .invoke_handler(tauri::generate_handler![connect_to_database, disconnect_from_database,execute_query,save_connection_info,get_saved_connections])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
