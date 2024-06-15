@@ -1,20 +1,30 @@
-import { Component, Show, createSignal } from "solid-js";
-import { Container, Row, Col, Button } from "solid-bootstrap";
+import { Component, Show, createSignal, onCleanup, onMount } from "solid-js";
+import { Container } from "solid-bootstrap";
 import ConnectionForm from "./components/ConnectionForm";
 import QueryEditor from "./components/QueryEditor";
-// import TableList from "./components/TableList";
-// import TableDetails from "./components/TableDetails";
-// import SchemaList from "./components/SchemaList";
+import { listen } from "@tauri-apps/api/event";
 
 const App: Component = () => {
   const [currentDbName, setCurrentDbName] = createSignal<string>("");
+  const [connectionStatus, setConnectionStatus] =
+    createSignal<string>("disconnected");
+
+  onMount(() => {
+    const unlisten = listen<string>("database-connection-status", (event) => {
+      setConnectionStatus(event.payload);
+    });
+
+    onCleanup(() => {
+      unlisten.then((f) => f());
+    });
+  });
   return (
     <>
       <nav class="navbar navbar-expand-lg navbar-light d-flex justify-content-between sticky-top p-0">
         <div class="navbar-brand">DBauri</div>
 
         <div class="d-flex align-items-center connection-info">
-          <Show when={currentDbName() !== ""}>
+          <Show when={connectionStatus() !== "disconnected"}>
             <div class="me-2">接続中: {currentDbName()}</div>
           </Show>
           <ConnectionForm setCurrentDbName={setCurrentDbName} />

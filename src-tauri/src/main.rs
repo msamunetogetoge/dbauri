@@ -3,7 +3,11 @@
 
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::time::{self, Duration};
+
+
 use tauri::State;
+use tauri::Manager;
 use tokio_postgres::types::Type;
 use tokio_postgres::{Client, NoTls, Row};
 use serde::{Deserialize, Serialize};
@@ -39,7 +43,7 @@ fn greet(name: &str) -> String {
 }
 
 #[tauri::command]
-async fn connect_to_database(connection_info: Option<ConnectionInfo>,state: State<'_, AppState>,) -> Result<String, String> {
+async fn connect_to_database(connection_info: Option<ConnectionInfo>,state: State<'_, AppState>,app_handle: tauri::AppHandle,) -> Result<String, String> {
     if let Some(info) = connection_info {
         let (client, connection) = tokio_postgres::connect(&info.connection_string, NoTls)
         .await
@@ -52,8 +56,38 @@ async fn connect_to_database(connection_info: Option<ConnectionInfo>,state: Stat
             eprintln!("Connection error: {}", e);
         }
     });
-     // Store the client for further use
-     *state.client.lock().await = Some(client);
+    // Store the client for further use
+     {
+        let mut client_lock = state.client.lock().await;
+        *client_lock = Some(client);
+    }
+
+    // スポーンして1分ごとに接続を確認するタスク
+    let client_clone = state.client.clone();
+    let app_handle = app_handle.clone();
+    tokio::spawn(async move {
+        let mut interval = time::interval(Duration::from_secs(60));
+        loop {
+            interval.tick().await;
+            let client_lock = client_clone.lock().await;
+            if let Some(client) = &*client_lock {
+                let query_result = client.simple_query("SELECT 1").await;
+                if query_result.is_err() {
+                    eprintln!("Lost connection to the database");
+                    app_handle.emit_all("database-connection-status", "disconnected").unwrap();
+
+                } else {
+                    println!("Database connection is healthy");
+                    app_handle.emit_all("database-connection-status", "connected").unwrap();
+
+                }
+            } else {
+                eprintln!("No database client available");
+                app_handle.emit_all("database-connection-status", "disconnected").unwrap();
+
+            }
+        }
+    });
 
     Ok("Connection successful".to_string())
     }else{
