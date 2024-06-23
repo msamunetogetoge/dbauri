@@ -11,6 +11,8 @@ interface QueryResult {
   rows: string[][];
 }
 
+const QueryEditorHeight = "5rem";
+
 const QueryEditor: Component = () => {
   const [query, setQuery] = createSignal("");
   const [queryError, setQueryError] = createSignal("");
@@ -19,9 +21,35 @@ const QueryEditor: Component = () => {
     rows: [],
   });
   const [showQuertyEditor, setShowQueryEditor] = createSignal(true);
+  const [queryEditorHeight, setQueryEditorHeight] =
+    createSignal<string>(QueryEditorHeight);
 
   let editor: EditorView | undefined;
   let editorContainer: HTMLDivElement | undefined;
+
+  let isResizing = false;
+  let startY: number;
+  let startHeight: number;
+
+  const onMouseDown = (e: MouseEvent) => {
+    isResizing = true;
+    startY = e.clientY;
+    startHeight = parseInt(queryEditorHeight());
+    document.addEventListener("mousemove", onMouseMove);
+    document.addEventListener("mouseup", onMouseUp);
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!isResizing) return;
+    const newHeight = startHeight + e.clientY - startY;
+    setQueryEditorHeight(`${newHeight}px`);
+  };
+
+  const onMouseUp = () => {
+    isResizing = false;
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+  };
 
   onMount(() => {
     if (editorContainer) {
@@ -98,17 +126,43 @@ const QueryEditor: Component = () => {
       >
         {showQuertyEditor() ? "Hide Editor" : "Show Editor"}
       </Button>
-
-      <div
-        ref={editorContainer}
-        style={{
-          border: "1px solid #ccc",
-          flex: "0 1 auto",
-          overflow: "auto",
-        }}
-      >
-        <Show when={showQuertyEditor()}> </Show>
-      </div>
+      <Show when={showQuertyEditor()}>
+        <div style={{ position: "relative", border: "1px solid #ccc" }}>
+          <div
+            ref={editorContainer}
+            style={{
+              // border: "1px solid #ccc",
+              flex: "0 1 auto",
+              overflow: "auto",
+              "min-height": QueryEditorHeight,
+              height: queryEditorHeight(),
+            }}
+          ></div>
+          <div
+            style={{
+              // position: "absolute",
+              height: "1rem",
+              // bottom: "0",
+              width: "100%",
+              "text-align": "center",
+            }}
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="32"
+              height="32"
+              fill="currentColor"
+              class="bi bi-grip-horizontal"
+              viewBox="0 0 16 16"
+              onMouseDown={onMouseDown}
+              onDblClick={() => setQueryEditorHeight(QueryEditorHeight)}
+              style={{ cursor: "ns-resize" }}
+            >
+              <path d="M2 8a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm3 3a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm0-3a1 1 0 1 1 0 2 1 1 0 0 1 0-2z" />
+            </svg>
+          </div>
+        </div>
+      </Show>
 
       <Button
         onClick={handleQueryExecute}
