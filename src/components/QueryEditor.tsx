@@ -11,7 +11,7 @@ interface QueryResult {
   rows: string[][];
 }
 
-const QueryEditorHeight = "5rem";
+const QueryEditorHeight = "5.1rem";
 
 const QueryEditor: Component = () => {
   const [query, setQuery] = createSignal("");
