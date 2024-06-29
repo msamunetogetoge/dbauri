@@ -1,21 +1,70 @@
-import { Dropdown } from "solid-bootstrap";
-import { Component } from "solid-js";
+import {
+  Component,
+  Show,
+  createEffect,
+  createSignal,
+  onCleanup,
+  onMount,
+  useContext,
+} from "solid-js";
+import { invoke } from "@tauri-apps/api";
+import { Button, Stack } from "solid-bootstrap";
+import TableList from "./TableList";
+import { useConnection } from "../context/ConnectionContext";
 
 const SchemaList: Component = () => {
-  return (
-    <div class="sidebar">
-      <Dropdown>
-        <Dropdown.Toggle variant="light" id="dropdown-basic">
-          Dropdown Button
-        </Dropdown.Toggle>
+  const [schemas, setSchemas] = createSignal<string[]>([]);
+  const [selectedSchema, setSelectedSchema] = createSignal<string | null>(null);
+  const [loading, setLoading] = createSignal<boolean>(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const { connectionStatus } = useConnection();
 
-        <Dropdown.Menu>
-          <Dropdown.Item href="#/action-1">Action</Dropdown.Item>
-          <Dropdown.Item href="#/action-2">Another action</Dropdown.Item>
-          <Dropdown.Item href="#/action-3">Something else</Dropdown.Item>
-        </Dropdown.Menu>
-      </Dropdown>
-    </div>
+  const fetchSchemas = async () => {
+    setLoading(true);
+    try {
+      const response: string[] = await invoke("get_schemas");
+      setSchemas(response);
+      setError(null);
+    } catch (err) {
+      setError("Failed to fetch schemas.");
+      console.error("Error fetching schemas:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  createEffect(() => {
+    if (connectionStatus() === "connected") {
+      fetchSchemas();
+    } else {
+      setSchemas([]);
+      setSelectedSchema(null);
+    }
+  });
+
+  return (
+    <Show when={schemas().length > 0}>
+      <div class="schema-list" style={{ "max-height": "100%" }}>
+        <h4>Schemas</h4>
+        {loading() && <p>Loading...</p>}
+        {error() && <p class="error">{error()}</p>}
+        <Stack style={{ "max-height": "20rem", "overflow-y": "auto" }}>
+          {schemas().map((schema) => (
+            <Button
+              variant="link"
+              class="px-0"
+              style={{ "overflow-wrap": "break-word", "text-align": "left" }}
+              onClick={() => setSelectedSchema(schema)}
+            >
+              {schema}
+            </Button>
+          ))}
+        </Stack>
+        <Show when={selectedSchema() !== null}>
+          <TableList schema={selectedSchema()!} />
+        </Show>
+      </div>
+    </Show>
   );
 };
 

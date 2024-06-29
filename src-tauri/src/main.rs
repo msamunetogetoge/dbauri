@@ -28,6 +28,19 @@ struct ConnectionInfo {
     connection_string: String,
 }
 
+#[derive(serde::Serialize)]
+struct TableColumn {
+    name: String,
+    definition: String,
+}
+
+#[derive(serde::Serialize)]
+struct TableInfo {
+    name: String,
+    comment: Option<String>,
+    columns: Vec<TableColumn>,
+}
+
 struct AppState {
     client: Arc<Mutex<Option<Client>>>,
 }
@@ -66,7 +79,7 @@ async fn connect_to_database(
         let client_clone = state.client.clone();
         let app_handle = app_handle.clone();
         tokio::spawn(async move {
-            let mut interval = time::interval(Duration::from_secs(60));
+            let mut interval = time::interval(Duration::from_secs(600));
             loop {
                 interval.tick().await;
                 let client_lock = client_clone.lock().await;
@@ -179,6 +192,88 @@ async fn execute_query(sql: String, state: State<'_, AppState>) -> Result<String
     }
 }
 
+#[tauri::command]
+async fn get_schemas(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let client_lock = state.client.lock().await;
+    if let Some(client) = &*client_lock {
+        let rows = client
+            .query("SELECT schema_name FROM information_schema.schemata", &[])
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let schemas: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        Ok(schemas)
+    } else {
+        Err("No database connection".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_tables(schema: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let client_lock = state.client.lock().await;
+    if let Some(client) = &*client_lock {
+        let query = format!(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = '{}'",
+            schema
+        );
+
+        let rows = client
+            .query(query.as_str(), &[])
+            .await
+            .map_err(|e| e.to_string())?;
+
+        let tables: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        Ok(tables)
+    } else {
+        Err("No database connection".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_table_info(
+    schema: String,
+    table: String,
+    state: State<'_, AppState>,
+) -> Result<TableInfo, String> {
+    let client_lock = state.client.lock().await;
+    if let Some(client) = &*client_lock {
+        let table_info_query = format!(
+            "SELECT table_name, obj_description('\"{}\".\"{}\"'::regclass) as comment FROM information_schema.tables WHERE table_schema = '{}' AND table_name = '{}'",
+            schema, table, schema, table
+        );
+        let columns_query = format!(
+            "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{}' AND table_name = '{}'",
+            schema, table
+        );
+
+        let table_info_row = client
+            .query_one(&table_info_query, &[])
+            .await
+            .map_err(|e| e.to_string())?;
+        let table_name: String = table_info_row.get("table_name");
+        let table_comment: Option<String> = table_info_row.get("comment");
+
+        let columns_rows = client
+            .query(&columns_query, &[])
+            .await
+            .map_err(|e| e.to_string())?;
+        let columns: Vec<TableColumn> = columns_rows
+            .iter()
+            .map(|row| TableColumn {
+                name: row.get("column_name"),
+                definition: row.get("data_type"),
+            })
+            .collect();
+
+        Ok(TableInfo {
+            name: table_name,
+            comment: table_comment,
+            columns,
+        })
+    } else {
+        Err("No database connection".to_string())
+    }
+}
 fn row_to_json(row: &Row) -> Vec<String> {
     row.columns()
         .iter()
@@ -246,7 +341,10 @@ fn main() {
             disconnect_from_database,
             execute_query,
             save_connection_info,
-            get_saved_connections
+            get_saved_connections,
+            get_schemas,
+            get_tables,
+            get_table_info
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
