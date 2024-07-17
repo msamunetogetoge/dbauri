@@ -13,8 +13,8 @@ interface QueryResult {
 
 const QueryEditorHeight = "5rem";
 
-const QueryEditor: Component = () => {
-  const [query, setQuery] = createSignal("");
+const QueryEditor: Component<{ value?: string }> = (props) => {
+  const [query, setQuery] = createSignal(props.value || "");
   const [queryError, setQueryError] = createSignal("");
   const [queryResult, setQueryResult] = createSignal<QueryResult>({
     columns: [],

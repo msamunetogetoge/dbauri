@@ -6,6 +6,7 @@ import {
   onCleanup,
   onMount,
   createEffect,
+  createUniqueId,
 } from "solid-js";
 import { Button, Container } from "solid-bootstrap";
 import ConnectionForm from "./components/ConnectionForm";
@@ -38,6 +39,10 @@ const AppContent: Component<{
 }> = (props) => {
   const [currentDbName, setCurrentDbName] = createSignal<string>("");
   const { connectionStatus, setConnectionStatus } = useConnection();
+  const [tabs, setTabs] = createSignal([
+    { id: "1", name: "Query 1", content: "" },
+  ]);
+  const [activeTab, setActiveTab] = createSignal("1");
 
   onMount(() => {
     const unlisten = listen<ConnectionMode>(
@@ -59,6 +64,33 @@ const AppContent: Component<{
     } catch (error) {
       console.error("Disconnection error:", error);
     }
+  };
+
+  const addTab = () => {
+    const id = createUniqueId();
+    const newTab = {
+      id: id,
+      name: `Query ${id}`,
+      content: "",
+    };
+    setTabs([...tabs(), newTab]);
+    setActiveTab(newTab.id);
+  };
+
+  const removeTab = (id: string) => {
+    setTabs(tabs().filter((tab) => tab.id !== id));
+    if (activeTab() === id && tabs().length > 1) {
+      setActiveTab(tabs()[0].id);
+    }
+  };
+
+  const handleTabClick = (id: string) => {
+    setActiveTab(id);
+  };
+
+  const handleContentChange = (id: string, content: string) => {
+    console.log("handleContentChange");
+    setTabs(tabs().map((tab) => (tab.id === id ? { ...tab, content } : tab)));
   };
   return (
     <>
@@ -86,7 +118,41 @@ const AppContent: Component<{
         <SideBar />
 
         <Container fluid class="content">
-          <QueryEditor />
+          <div
+            class={"tab"}
+            style={{
+              "background-color": "#ddd",
+            }}
+          >
+            {tabs().map((tab) => (
+              <Button
+                class={"tab-button"}
+                onClick={() => handleTabClick(tab.id)}
+                variant={`${
+                  activeTab() === tab.id ? "light" : "outline-light"
+                }`}
+              >
+                {tab.name}
+                <span onClick={() => removeTab(tab.id)}> x </span>
+              </Button>
+            ))}
+            <Button
+              onClick={addTab}
+              class={"tab-button"}
+              variant={"outline-light"}
+            >
+              +
+            </Button>
+          </div>
+          <div>
+            {tabs().map((tab) => (
+              <div
+                style={{ display: tab.id === activeTab() ? "block" : "none" }}
+              >
+                <QueryEditor value={tab.content} />
+              </div>
+            ))}
+          </div>
 
           {/* <Row>
             <Col md={12}>
