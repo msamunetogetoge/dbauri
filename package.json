@@ -4,16 +4,16 @@
   "description": "",
   "type": "module",
   "scripts": {
-    "start": "vite",
-    "dev": "vite",
-    "build": "vite build",
-    "serve": "vite preview",
+    "dev": "farm",
+    "build": "tsc && farm build",
+    "preview": "farm preview",
     "tauri": "tauri"
   },
   "license": "MIT",
   "dependencies": {
     "@codemirror/commands": "^6.5.0",
     "@codemirror/lang-sql": "^6.6.4",
+    "@farmfe/plugin-sass": "^1.1.0",
     "@tauri-apps/api": "^1",
     "bootstrap": "^5.3.3",
     "codemirror": "^6.0.1",
@@ -23,10 +23,13 @@
     "solid-js": "^1.8.17"
   },
   "devDependencies": {
+    "@farmfe/cli": "^1.0.2",
+    "@farmfe/core": "^1.3.0",
+    "@farmfe/js-plugin-solid": "^2.8.0",
+    "@farmfe/plugin-react": "^1.2.0",
     "@tauri-apps/cli": "^1",
     "@types/node": "^20.13.0",
     "typescript": "^5.0.2",
-    "vite": "^5.0.0",
     "vite-plugin-solid": "^2.8.0"
   }
 }
