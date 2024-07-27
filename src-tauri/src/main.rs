@@ -413,6 +413,7 @@ async fn main() {
 }
 
 #[cfg(test)]
+/// testするときは、.emvファイルにDATABASE_URL=****と、接続情報を書くこと
 mod tests {
     use super::*;
     use dotenv::dotenv;
