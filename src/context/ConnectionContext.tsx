@@ -1,17 +1,36 @@
-import { createSignal, createContext, useContext, Component } from "solid-js";
+import {
+  createSignal,
+  createContext,
+  useContext,
+  Component,
+  Accessor,
+  Setter,
+} from "solid-js";
 
+// 接続ステータスのタイプ
 export type ConnectionMode = "disconnected" | "connected";
+// 接続ステータス
+export type ConnectionStatus = {
+  id: string;
+  status: ConnectionMode;
+};
 
+// 接続コンテキストのタイプ
 interface ConnectionContextType {
-  connectionStatus: () => ConnectionMode;
-  setConnectionStatus: (status: ConnectionMode) => void;
+  connectionStatus: Accessor<ConnectionStatus[]>;
+  setConnectionStatus: Setter<ConnectionStatus[]>;
 }
 
+const initialConnectionStatus: ConnectionStatus[] = [];
+
+// 接続コンテキストの作成
 const ConnectionContext = createContext<ConnectionContextType>();
 
+// 接続コンテキストプロバイダーの実装
 export const ConnectionProvider: Component<{ children: any }> = (props) => {
-  const [connectionStatus, setConnectionStatus] =
-    createSignal<ConnectionMode>("disconnected");
+  const [connectionStatus, setConnectionStatus] = createSignal<
+    ConnectionStatus[]
+  >(initialConnectionStatus);
 
   return (
     <ConnectionContext.Provider
@@ -22,6 +41,7 @@ export const ConnectionProvider: Component<{ children: any }> = (props) => {
   );
 };
 
+// useConnectionフックの実装
 export const useConnection = () => {
   const context = useContext(ConnectionContext);
   if (!context) {

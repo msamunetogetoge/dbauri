@@ -13,8 +13,10 @@ interface QueryResult {
 
 const QueryEditorHeight = "5rem";
 
-const QueryEditor: Component = () => {
-  const [query, setQuery] = createSignal("");
+const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
+  props
+) => {
+  const [query, setQuery] = createSignal(props.value || "");
   const [queryError, setQueryError] = createSignal("");
   const [queryResult, setQueryResult] = createSignal<QueryResult>({
     columns: [],
@@ -31,6 +33,7 @@ const QueryEditor: Component = () => {
   let startY: number;
   let startHeight: number;
 
+  // リサイズの処理
   const onMouseDown = (e: MouseEvent) => {
     isResizing = true;
     startY = e.clientY;
@@ -39,12 +42,14 @@ const QueryEditor: Component = () => {
     document.addEventListener("mouseup", onMouseUp);
   };
 
+  // リサイズの処理
   const onMouseMove = (e: MouseEvent) => {
     if (!isResizing) return;
     const newHeight = startHeight + e.clientY - startY;
     setQueryEditorHeight(`${newHeight}px`);
   };
 
+  // リサイズの処理
   const onMouseUp = () => {
     isResizing = false;
     document.removeEventListener("mousemove", onMouseMove);
@@ -52,6 +57,7 @@ const QueryEditor: Component = () => {
   };
 
   onMount(() => {
+    // タブを変更して戻ってきたときのための処理
     if (editorContainer) {
       editor = new EditorView({
         doc: query(),
@@ -72,7 +78,10 @@ const QueryEditor: Component = () => {
 
   const handleQueryExecute = async () => {
     try {
-      const response = await invoke<string>("execute_query", { sql: query() });
+      const response = await invoke<string>("execute_query", {
+        id: props.connectionId,
+        sql: query(),
+      });
       const result = JSON.parse(response) as QueryResult;
       setQueryError("");
       setQueryResult(result);

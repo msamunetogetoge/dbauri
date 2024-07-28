@@ -1,4 +1,3 @@
-// src/custom.scss
 $theme-colors: (
   "primary": #007199,
   "secondary": #6c757d,
@@ -11,35 +10,37 @@ $theme-colors: (
 );
 
 $primary: map-get($theme-colors, "primary");
+$secondary: map-get($theme-colors, "secondary");
 
-$btn-primary-bg: #007199;
-$btn-primary-border: #007199;
-$btn-primary-hover-bg: darken(#007199, 10%);
-$btn-primary-hover-border: darken(#007199, 10%);
 
-$input-border-color: #007199;
-$input-focus-border-color: lighten(#007199, 20%);
+$btn-primary-bg: $primary;
+$btn-primary-border: $primary;
+$btn-primary-hover-bg: darken($primary, 10%);
+$btn-primary-hover-border: darken($primary, 10%);
+
+$input-border-color: $primary;
+$input-focus-border-color: lighten($primary, 20%);
 $input-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
 
-$select-border-color: #007199;
-$select-focus-border-color: lighten(#007199, 20%);
+$select-border-color: $primary;
+$select-focus-border-color: lighten($primary, 20%);
 $select-focus-box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.25);
 
-
 .table-primary {
-  --bs-table-bg: #007199;
-  --bs-table-striped-bg: lighten(#007199, 10%);
-  --bs-table-hover-bg: lighten(#007199, 15%);
-  --bs-table-active-bg: lighten(#007199, 20%);
-  --bs-table-border-color: #007199;
+  --bs-table-bg: $primary;
+  --bs-table-striped-bg: lighten($primary, 10%);
+  --bs-table-hover-bg: lighten($primary, 15%);
+  --bs-table-active-bg: lighten($primary, 20%);
+  --bs-table-border-color: $primary;
 }
+
 body {
   background-color: #f8f9fa;
 }
 
 .btn-outline-primary {
   background-color: #fff;
-  color: lighten(#007199, 20%);
+  color: lighten($primary, 20%);
   border-color: $primary;
 
   &:hover {
@@ -47,28 +48,25 @@ body {
     color: #fff;
   }
 
-  &:focus,
-  &:active,
-  &:focus-visible {
-    box-shadow: 0 0 0 0.2rem rgba(0, 113, 153, 0.5);
-  }
 }
 
-main{
-  height: calc(100vh - 56px)
+main {
+  height: calc(100vh - 56px);
 }
+
 .navbar {
-
   border-bottom: 1px solid $primary;
   background-color: $btn-primary-bg;
-  .connection-info{
+
+  .connection-info {
     color: #fff;
   }
+
   .navbar-brand, .nav-link {
     color: #fff;
     padding: 0.5rem;
-    
-    &:hover{
+
+    &:hover {
       color: #fff;
     }
   }
@@ -80,15 +78,13 @@ main{
   height: 100vh;
   padding: 0.5rem;
   max-width: 10rem;
-
   color: #000;
 }
 
 .content {
   margin-left: 250px;
   padding: 1rem;
-  height: "100%";
-  padding:"1rem"
+  height: 100%;
 }
 
 .table {
@@ -99,8 +95,16 @@ main{
 .table td {
   vertical-align: middle;
 }
-
-
+.tab{
+  .btn{
+   margin-right: 0.25rem;
+  }
+  .tab-button {
+    &.btn-outline-light{
+      color: #000;
+    }
+  }
+}
 
 
 @import "bootstrap/scss/bootstrap";
