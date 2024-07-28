@@ -1,25 +1,18 @@
-// Prevents additional console window on Windows in release, DO NOT REMOVE!!
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tokio::time::{self, Duration};
-
 use anyhow::Result;
+use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use tauri::Manager;
-use tauri::State;
-use tokio_postgres::types::Type;
-use tokio_postgres::{Client, NoTls, Row};
-
+use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::sync::Arc;
+use tauri::Manager;
+use tauri::State;
 
-use chrono::{DateTime, NaiveDate, NaiveDateTime, NaiveTime, Utc};
+use tokio::sync::Mutex;
+use tokio_postgres::{types::Type, Client, NoTls, Row};
 use uuid::Uuid;
-
-use rust_decimal::Decimal;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -28,13 +21,20 @@ struct ConnectionInfo {
     connection_string: String,
 }
 
-#[derive(serde::Serialize)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct ConnectionInfoWithId {
+    id: Uuid,
+    connection_name: String,
+    connection_string: String,
+}
+
+#[derive(serde::Serialize, Debug)]
 struct TableColumn {
     name: String,
     definition: String,
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, Debug)]
 struct TableInfo {
     name: String,
     comment: Option<String>,
@@ -42,87 +42,218 @@ struct TableInfo {
 }
 
 struct AppState {
-    client: Arc<Mutex<Option<Client>>>,
-}
-
-// Learn more about Tauri commands at https://tauri.app/v1/guides/features/command
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
+    clients: Arc<Mutex<HashMap<Uuid, Client>>>,
 }
 
 #[tauri::command]
 async fn connect_to_database(
-    connection_info: Option<ConnectionInfo>,
+    connection_info: ConnectionInfo,
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
-) -> Result<String, String> {
-    if let Some(info) = connection_info {
-        let (client, connection) = tokio_postgres::connect(&info.connection_string, NoTls)
-            .await
-            .map_err(|err| format!("Connection error: {}", err))?;
+) -> Result<Uuid, String> {
+    let id = Uuid::new_v4();
+    let connection_info_with_id = ConnectionInfoWithId {
+        id,
+        connection_name: connection_info.connection_name,
+        connection_string: connection_info.connection_string,
+    };
 
-        // The connection object performs the actual communication with the database,
-        // so spawn it off to run on its own.
-        tokio::spawn(async move {
-            if let Err(e) = connection.await {
-                eprintln!("Connection error: {}", e);
-            }
-        });
-        // Store the client for further use
-        {
-            let mut client_lock = state.client.lock().await;
-            *client_lock = Some(client);
-        }
+    connect_to_db_internal(connection_info_with_id, state.inner())
+        .await
+        .map_err(|e| e.to_string())?;
 
-        // スポーンして1分ごとに接続を確認するタスク
-        let client_clone = state.client.clone();
-        let app_handle = app_handle.clone();
-        tokio::spawn(async move {
-            let mut interval = time::interval(Duration::from_secs(600));
-            loop {
-                interval.tick().await;
-                let client_lock = client_clone.lock().await;
-                if let Some(client) = &*client_lock {
-                    let query_result = client.simple_query("SELECT 1").await;
-                    if query_result.is_err() {
-                        eprintln!("Lost connection to the database");
-                        app_handle
-                            .emit_all("database-connection-status", "disconnected")
-                            .unwrap();
-                    } else {
-                        println!("Database connection is healthy");
-                        app_handle
-                            .emit_all("database-connection-status", "connected")
-                            .unwrap();
-                    }
-                } else {
-                    eprintln!("No database client available");
+    let clients = state.clients.clone();
+    let app_handle = Arc::new(Mutex::new(app_handle.clone()));
+    tokio::spawn(async move {
+        let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(600));
+        loop {
+            interval.tick().await;
+            let clients = clients.lock().await;
+            for (id, client) in clients.iter() {
+                let query_result = client.simple_query("SELECT 1").await;
+                let app_handle = app_handle.lock().await;
+                if query_result.is_err() {
+                    eprintln!("Lost connection to the database with ID: {}", id);
                     app_handle
-                        .emit_all("database-connection-status", "disconnected")
+                        .emit_all(
+                            "database-connection-status",
+                            json!({"id": id, "status": "disconnected"}),
+                        )
+                        .unwrap();
+                } else {
+                    println!("Database connection with ID: {} is healthy", id);
+                    app_handle
+                        .emit_all(
+                            "database-connection-status",
+                            json!({"id": id, "status": "connected"}),
+                        )
                         .unwrap();
                 }
             }
-        });
+        }
+    });
 
-        Ok("Connection successful".to_string())
-    } else {
-        Err("Invalid connection string".into())
+    Ok(id)
+}
+
+async fn connect_to_db_internal(
+    connection_info: ConnectionInfoWithId,
+    state: &AppState,
+) -> Result<Uuid, String> {
+    let (client, connection) = tokio_postgres::connect(&connection_info.connection_string, NoTls)
+        .await
+        .map_err(|err| format!("Connection error: {}", err))?;
+
+    tokio::spawn(async move {
+        if let Err(e) = connection.await {
+            eprintln!("Connection error: {}", e);
+        }
+    });
+
+    {
+        let mut clients = state.clients.lock().await;
+        clients.insert(connection_info.id, client);
     }
+
+    Ok(connection_info.id)
 }
 
 #[tauri::command]
 async fn disconnect_from_database(
+    id: Uuid,
     state: State<'_, AppState>,
     app_handle: tauri::AppHandle,
 ) -> Result<String, String> {
-    let mut client_lock = state.client.lock().await;
-    *client_lock = None;
+    disconnect_from_db_internal(id, state.inner())
+        .await
+        .map_err(|e| e.to_string())?;
     app_handle
-        .emit_all("database-connection-status", "disconnected")
+        .emit_all(
+            "database-connection-status",
+            json!({"id": id, "status": "disconnected"}),
+        )
         .unwrap();
 
     Ok("Disconnected successfully".to_string())
+}
+
+async fn disconnect_from_db_internal(
+    id: Uuid,
+    state: &AppState,
+) -> Result<(), tokio_postgres::Error> {
+    let mut clients = state.clients.lock().await;
+    clients.remove(&id);
+    dbg!("Database Disconnected! ", id);
+    Ok(())
+}
+
+#[tauri::command]
+async fn execute_query(
+    id: Uuid,
+    sql: String,
+    state: State<'_, AppState>,
+) -> Result<String, String> {
+    execute_query_internal(id, sql, state.inner())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn execute_query_internal(id: Uuid, sql: String, state: &AppState) -> Result<String, String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&id) {
+        let rows = client
+            .query(&sql, &[])
+            .await
+            .map_err(|err| format!("Query execution error: {}", err))?;
+        if rows.is_empty() {
+            return Ok(json!({"columns": [], "rows": []}).to_string());
+        }
+
+        let columns: Vec<String> = rows[0]
+            .columns()
+            .iter()
+            .map(|col| col.name().to_string())
+            .collect();
+        let data: Vec<Vec<String>> = rows.iter().map(|row| row_to_json(row)).collect();
+
+        let result = json!({
+            "columns": columns,
+            "rows": data
+        });
+
+        Ok(result.to_string())
+    } else {
+        Err("No database connection".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_schemas(id: Uuid, state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    get_schemas_internal(id, state.inner())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn get_schemas_internal(id: Uuid, state: &AppState) -> Result<Vec<String>, String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&id) {
+        dbg!("get_schemas", id);
+        let rows = client
+            .query("SELECT schema_name FROM information_schema.schemata", &[])
+            .await
+            .map_err(|e| e.to_string())?;
+        let schemas: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        Ok(schemas)
+    } else {
+        Err("No database connection".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_tables(
+    id: Uuid,
+    schema: String,
+    state: State<'_, AppState>,
+) -> Result<Vec<String>, String> {
+    get_tables_internal(id, schema, state.inner())
+        .await
+        .map_err(|e| e.to_string())
+}
+
+async fn get_tables_internal(
+    id: Uuid,
+    schema: String,
+    state: &AppState,
+) -> Result<Vec<String>, String> {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&id) {
+        let query = format!(
+            "SELECT table_name FROM information_schema.tables WHERE table_schema = '{}'",
+            schema
+        );
+
+        let rows = client
+            .query(query.as_str(), &[])
+            .await
+            .map_err(|e| e.to_string())?;
+        let tables: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        dbg!("get_tables", id, schema);
+        Ok(tables)
+    } else {
+        Err("No database connection".to_string())
+    }
+}
+
+#[tauri::command]
+async fn get_table_info(
+    id: Uuid,
+    schema: String,
+    table: String,
+    state: State<'_, AppState>,
+) -> Result<TableInfo, String> {
+    get_table_info_internal(id, schema, table, state.inner())
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -162,81 +293,14 @@ async fn get_saved_connections() -> Result<Vec<ConnectionInfo>, String> {
     Ok(connections)
 }
 
-#[tauri::command]
-async fn execute_query(sql: String, state: State<'_, AppState>) -> Result<String, String> {
-    let client_lock = state.client.lock().await;
-    if let Some(client) = &*client_lock {
-        let rows = client
-            .query(&sql, &[])
-            .await
-            .map_err(|err| format!("Query execution error: {}", err))?;
-        if rows.is_empty() {
-            return Ok(json!({"columns": [], "rows": []}).to_string());
-        }
-
-        let columns: Vec<String> = rows[0]
-            .columns()
-            .iter()
-            .map(|col| col.name().to_string())
-            .collect();
-        let data: Vec<Vec<String>> = rows.iter().map(|row| row_to_json(row)).collect();
-
-        let result = json!({
-            "columns": columns,
-            "rows": data
-        });
-
-        Ok(result.to_string())
-    } else {
-        Err("No database connection".to_string())
-    }
-}
-
-#[tauri::command]
-async fn get_schemas(state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let client_lock = state.client.lock().await;
-    if let Some(client) = &*client_lock {
-        let rows = client
-            .query("SELECT schema_name FROM information_schema.schemata", &[])
-            .await
-            .map_err(|e| e.to_string())?;
-
-        let schemas: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
-        Ok(schemas)
-    } else {
-        Err("No database connection".to_string())
-    }
-}
-
-#[tauri::command]
-async fn get_tables(schema: String, state: State<'_, AppState>) -> Result<Vec<String>, String> {
-    let client_lock = state.client.lock().await;
-    if let Some(client) = &*client_lock {
-        let query = format!(
-            "SELECT table_name FROM information_schema.tables WHERE table_schema = '{}'",
-            schema
-        );
-
-        let rows = client
-            .query(query.as_str(), &[])
-            .await
-            .map_err(|e| e.to_string())?;
-
-        let tables: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
-        Ok(tables)
-    } else {
-        Err("No database connection".to_string())
-    }
-}
-
-#[tauri::command]
-async fn get_table_info(
+async fn get_table_info_internal(
+    id: Uuid,
     schema: String,
     table: String,
-    state: State<'_, AppState>,
+    state: &AppState,
 ) -> Result<TableInfo, String> {
-    let client_lock = state.client.lock().await;
-    if let Some(client) = &*client_lock {
+    let clients = state.clients.lock().await;
+    if let Some(client) = clients.get(&id) {
         let table_info_query = format!(
             "SELECT table_name, obj_description('\"{}\".\"{}\"'::regclass) as comment FROM information_schema.tables WHERE table_schema = '{}' AND table_name = '{}'",
             schema, table, schema, table
@@ -274,6 +338,7 @@ async fn get_table_info(
         Err("No database connection".to_string())
     }
 }
+
 fn row_to_json(row: &Row) -> Vec<String> {
     row.columns()
         .iter()
@@ -283,7 +348,6 @@ fn row_to_json(row: &Row) -> Vec<String> {
 }
 
 fn value_to_string(value: &Type, row: &Row, idx: usize) -> String {
-    // row.try_get(idx).map_or("NULL".to_string(), |v| v.to_string())
     match *value {
         Type::BOOL => row
             .try_get::<_, bool>(idx)
@@ -326,16 +390,16 @@ fn value_to_string(value: &Type, row: &Row, idx: usize) -> String {
             .map_or("NULL".to_string(), |v| v.to_string()),
         Type::JSON | Type::JSONB => "JSON IS NOT SUPPORTED".to_string(),
         Type::BYTEA => "BYTEA IS NOT SUPPORTED".to_string(),
-
         _ => "Unsupported type".to_string(),
     }
 }
-fn main() {
+
+#[tokio::main]
+async fn main() {
     tauri::Builder::default()
         .manage(AppState {
-            client: Arc::new(Mutex::new(None)),
+            clients: Arc::new(Mutex::new(HashMap::new())),
         })
-        .invoke_handler(tauri::generate_handler![greet])
         .invoke_handler(tauri::generate_handler![
             connect_to_database,
             disconnect_from_database,
@@ -346,6 +410,88 @@ fn main() {
             get_tables,
             get_table_info
         ])
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                let app_handle = event.window().app_handle();
+                // Prevent the window from closing immediately
+                api.prevent_close();
+
+                // Emit a custom event to notify the frontend to disconnect all connections
+                app_handle
+                    .emit_all("disconnect-all-connections", ())
+                    .unwrap();
+
+                // Allow the window to close after emitting the event
+                app_handle.exit(0);
+            }
+        })
+        .setup(|_app| Ok(()))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+/// testするときは、.emvファイルにDATABASE_URL=****と、接続情報を書くこと
+mod tests {
+    use super::*;
+    use dotenv::dotenv;
+    use std::env;
+
+    #[tokio::test]
+    async fn test_database_operations() {
+        dotenv().ok();
+        // 環境変数から接続情報を読み込む
+        let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+
+        // 状態の初期化
+        let state = AppState {
+            clients: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        // 接続情報
+        let connection_info = ConnectionInfo {
+            connection_name: "TestConnection".into(),
+            connection_string: database_url,
+        };
+
+        // データベースに接続
+        let id = connect_to_db_internal(
+            ConnectionInfoWithId {
+                id: Uuid::new_v4(),
+                connection_name: connection_info.connection_name.clone(),
+                connection_string: connection_info.connection_string.clone(),
+            },
+            &state,
+        )
+        .await
+        .unwrap();
+
+        println!("Connected to database with ID: {}", id);
+
+        // スキーマを取得
+        let schemas = get_schemas_internal(id, &state).await.unwrap();
+        println!("Schemas: {:?}", schemas);
+
+        // テーブルを取得
+        let tables = get_tables_internal(id, "public".into(), &state)
+            .await
+            .unwrap();
+        println!("Tables: {:?}", tables);
+
+        // テーブル情報を取得
+        let table_info = get_table_info_internal(id, "public".into(), "shohin".into(), &state)
+            .await
+            .unwrap();
+        println!("Table Info: {:?}", table_info);
+
+        // クエリを実行
+        let query_result = execute_query_internal(id, "SELECT * FROM shohin;".into(), &state)
+            .await
+            .unwrap();
+        println!("Query Result: {}", query_result);
+
+        // データベースから切断
+        disconnect_from_db_internal(id, &state).await.unwrap();
+        println!("Disconnected from database: ");
+    }
 }

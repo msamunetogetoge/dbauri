@@ -25,6 +25,7 @@ interface ConnectionInfo {
 
 const ConnectionForm: Component<{
   setCurrentDbName: (name: string) => void;
+  onConnect: (connectionId: string) => void;
 }> = (props) => {
   const [connectionInfo, setConnectionInfo] =
     createSignal<ConnectionInfoDetail>({
@@ -56,11 +57,13 @@ const ConnectionForm: Component<{
     }
   });
 
+  // 初期表示時、保存されたdb情報読み込み
   onMount(async () => {
     const connections = await invoke<ConnectionInfo[]>("get_saved_connections");
     setSavedConnections(connections);
   });
 
+  // 接続ボタン押下時処理
   const handleConnect = async () => {
     const pattern =
       /^postgresql:\/\/([^:]{1,}):([^@]{1,})@([^:]{1,}):(\d{1,})\/(.{1,})$/;
@@ -71,6 +74,8 @@ const ConnectionForm: Component<{
           connectionName: connectionInfo().name || "noNameConncetion",
           connectionString: connectionString(),
         };
+
+        // 接続 -> 保存 -> アプリ全体に通知
         const response = await invoke<string>("connect_to_database", {
           connectionInfo: info,
         });
@@ -80,6 +85,7 @@ const ConnectionForm: Component<{
           connectionInfo: info,
         });
         props.setCurrentDbName(info.connectionName);
+        props.onConnect(response);
       } else {
         setAlertMessage("Connection string is not in the correct format.");
         setAlertVariant("danger");
@@ -91,6 +97,7 @@ const ConnectionForm: Component<{
     }
   };
 
+  // セレクトから既存の接続情報を選んだ時に成型してセット
   const handleSavedConnectionSelect = (e: any) => {
     const selected = e.currentTarget?.value;
     setSelectedConnection(selected);
@@ -113,6 +120,7 @@ const ConnectionForm: Component<{
     }
   };
 
+  // 手動で接続情報入力時の処理
   const handleInputChange =
     (field: keyof ConnectionInfoDetail) => (e: Event) => {
       const target = e.target as HTMLInputElement;
