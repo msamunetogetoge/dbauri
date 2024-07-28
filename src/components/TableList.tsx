@@ -11,6 +11,7 @@ import TableDetails from "./TableDetails";
 
 interface TableListProps {
   schema: string;
+  connectionId: string;
 }
 
 const TableList: Component<TableListProps> = (props) => {
@@ -24,6 +25,7 @@ const TableList: Component<TableListProps> = (props) => {
     setLoading(true);
     try {
       const response: string[] = await invoke("get_tables", {
+        id: props.connectionId,
         schema: props.schema,
       });
       setTables(response);
@@ -61,6 +63,7 @@ const TableList: Component<TableListProps> = (props) => {
       </Stack>
       {selectedTable() && (
         <TableDetails
+          connectionId={props.connectionId}
           schema={props.schema}
           table={selectedTable()!}
           onClose={() => setSelectedTable(null)}

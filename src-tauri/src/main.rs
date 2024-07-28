@@ -143,6 +143,7 @@ async fn disconnect_from_db_internal(
 ) -> Result<(), tokio_postgres::Error> {
     let mut clients = state.clients.lock().await;
     clients.remove(&id);
+    dbg!("Database Disconnected! ", id);
     Ok(())
 }
 
@@ -196,6 +197,7 @@ async fn get_schemas(id: Uuid, state: State<'_, AppState>) -> Result<Vec<String>
 async fn get_schemas_internal(id: Uuid, state: &AppState) -> Result<Vec<String>, String> {
     let clients = state.clients.lock().await;
     if let Some(client) = clients.get(&id) {
+        dbg!("get_schemas", id);
         let rows = client
             .query("SELECT schema_name FROM information_schema.schemata", &[])
             .await
@@ -235,6 +237,7 @@ async fn get_tables_internal(
             .await
             .map_err(|e| e.to_string())?;
         let tables: Vec<String> = rows.iter().map(|row| row.get(0)).collect();
+        dbg!("get_tables", id, schema);
         Ok(tables)
     } else {
         Err("No database connection".to_string())
@@ -407,6 +410,21 @@ async fn main() {
             get_tables,
             get_table_info
         ])
+        .on_window_event(|event| {
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event.event() {
+                let app_handle = event.window().app_handle();
+                // Prevent the window from closing immediately
+                api.prevent_close();
+
+                // Emit a custom event to notify the frontend to disconnect all connections
+                app_handle
+                    .emit_all("disconnect-all-connections", ())
+                    .unwrap();
+
+                // Allow the window to close after emitting the event
+                app_handle.exit(0);
+            }
+        })
         .setup(|_app| Ok(()))
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,28 +1,20 @@
-import {
-  Component,
-  Show,
-  createEffect,
-  createSignal,
-  onCleanup,
-  onMount,
-  useContext,
-} from "solid-js";
+import { Component, Show, createEffect, createSignal } from "solid-js";
 import { invoke } from "@tauri-apps/api";
 import { Button, Stack } from "solid-bootstrap";
 import TableList from "./TableList";
-import { useConnection } from "../context/ConnectionContext";
 
-const SchemaList: Component = () => {
+const SchemaList: Component<{ connectionId: string }> = (props) => {
   const [schemas, setSchemas] = createSignal<string[]>([]);
   const [selectedSchema, setSelectedSchema] = createSignal<string | null>(null);
   const [loading, setLoading] = createSignal<boolean>(false);
   const [error, setError] = createSignal<string | null>(null);
-  const { connectionStatus } = useConnection();
 
   const fetchSchemas = async () => {
     setLoading(true);
     try {
-      const response: string[] = await invoke("get_schemas");
+      const response: string[] = await invoke("get_schemas", {
+        id: props.connectionId,
+      });
       setSchemas(response);
       setError(null);
     } catch (err) {
@@ -34,7 +26,8 @@ const SchemaList: Component = () => {
   };
 
   createEffect(() => {
-    if (connectionStatus() === "connected") {
+    // 接続情報のidがあるときだけfetchする
+    if (props.connectionId !== "") {
       fetchSchemas();
     } else {
       setSchemas([]);
@@ -48,20 +41,26 @@ const SchemaList: Component = () => {
         <h4>Schemas</h4>
         {loading() && <p>Loading...</p>}
         {error() && <p class="error">{error()}</p>}
-        <Stack style={{ "max-height": "20rem", "overflow-y": "auto" }}>
-          {schemas().map((schema) => (
-            <Button
-              variant="link"
-              class="px-0"
-              style={{ "overflow-wrap": "break-word", "text-align": "left" }}
-              onClick={() => setSelectedSchema(schema)}
-            >
-              {schema}
-            </Button>
-          ))}
-        </Stack>
-        <Show when={selectedSchema() !== null}>
-          <TableList schema={selectedSchema()!} />
+        <Show when={error() === null}>
+          <Stack style={{ "max-height": "20rem", "overflow-y": "auto" }}>
+            {schemas().map((schema) => (
+              <Button
+                variant="link"
+                class="px-0"
+                style={{ "overflow-wrap": "break-word", "text-align": "left" }}
+                onClick={() => setSelectedSchema(schema)}
+              >
+                {schema}
+              </Button>
+            ))}
+          </Stack>
+        </Show>
+        {/*  schemaのリストが正常に取得できた時だけテーブルリストを表示 */}
+        <Show when={error() === null && selectedSchema() !== null}>
+          <TableList
+            schema={selectedSchema()!}
+            connectionId={props.connectionId}
+          />
         </Show>
       </div>
     </Show>

@@ -5,6 +5,7 @@ import { invoke } from "@tauri-apps/api";
 interface TableDetailsProps {
   schema: string;
   table: string;
+  connectionId: string;
   onClose: () => void;
 }
 
@@ -28,6 +29,7 @@ const TableDetails: Component<TableDetailsProps> = (props) => {
     setLoading(true);
     try {
       const response: TableInfo = await invoke("get_table_info", {
+        id: props.connectionId,
         schema: props.schema,
         table: props.table,
       });
