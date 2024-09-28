@@ -19,6 +19,11 @@ interface QueryResult {
   rows: string[][];
 }
 
+interface QueryEffectResult {
+  message: string;
+  rows_affected: string;
+}
+
 const QueryEditorHeight = "5rem";
 
 const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
@@ -121,9 +126,15 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
         id: props.connectionId,
         sql: query(),
       });
-      const result = JSON.parse(response) as QueryResult;
-      setQueryError("");
-      setQueryResult(result);
+      if (query().toUpperCase().startsWith("SELECT")) {
+        const result = JSON.parse(response) as QueryResult;
+        setQueryError("");
+        setQueryResult(result);
+      } else {
+        const result = JSON.parse(response) as QueryEffectResult;
+        setQueryError("");
+        alert(`${result.message}, rows_affected:${result.rows_affected}`);
+      }
     } catch (error: any) {
       console.error("Query execution error:", error);
       setQueryError(error.toString());

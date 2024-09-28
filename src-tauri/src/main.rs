@@ -161,27 +161,47 @@ async fn execute_query(
 async fn execute_query_internal(id: Uuid, sql: String, state: &AppState) -> Result<String, String> {
     let clients = state.clients.lock().await;
     if let Some(client) = clients.get(&id) {
-        let rows = client
-            .query(&sql, &[])
-            .await
-            .map_err(|err| format!("Query execution error: {}", err))?;
-        if rows.is_empty() {
-            return Ok(json!({"columns": [], "rows": []}).to_string());
+        // クエリが SELECT 文かどうかをチェック
+        if sql.trim().to_uppercase().starts_with("SELECT") {
+            // SELECT クエリの実行
+            let rows = client
+                .query(&sql, &[])
+                .await
+                .map_err(|err| format!("Query execution error: {}", err))?;
+
+            if rows.is_empty() {
+                return Ok(json!({
+                    "columns": [],
+                    "rows": []
+                })
+                .to_string());
+            }
+
+            let columns: Vec<String> = rows[0]
+                .columns()
+                .iter()
+                .map(|col| col.name().to_string())
+                .collect();
+            let data: Vec<Vec<String>> = rows.iter().map(|row| row_to_json(row)).collect();
+
+            let result = json!({
+                "columns": columns,
+                "rows": data
+            });
+
+            Ok(result.to_string())
+        } else {
+            // SELECT 以外のクエリ（INSERT/UPDATE/DELETE）は execute を使用
+            let rows_affected = client
+                .execute(&sql, &[])
+                .await
+                .map_err(|err| format!("Execution error: {}", err))?;
+            Ok(json!({
+                "message": "Command completed",
+                "rows_affected": rows_affected
+            })
+            .to_string())
         }
-
-        let columns: Vec<String> = rows[0]
-            .columns()
-            .iter()
-            .map(|col| col.name().to_string())
-            .collect();
-        let data: Vec<Vec<String>> = rows.iter().map(|row| row_to_json(row)).collect();
-
-        let result = json!({
-            "columns": columns,
-            "rows": data
-        });
-
-        Ok(result.to_string())
     } else {
         Err("No database connection".to_string())
     }
