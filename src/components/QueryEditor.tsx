@@ -1,4 +1,12 @@
-import { Component, Show, createEffect, createSignal, onMount } from "solid-js";
+import {
+  Component,
+  Show,
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+} from "solid-js";
 import { Button, Alert, Table } from "solid-bootstrap";
 import { invoke } from "@tauri-apps/api/tauri";
 import { EditorView, basicSetup } from "codemirror";
@@ -25,6 +33,37 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
   const [showQuertyEditor, setShowQueryEditor] = createSignal(true);
   const [queryEditorHeight, setQueryEditorHeight] =
     createSignal<string>(QueryEditorHeight);
+
+  // windowの幅・高さを保持
+  const [windowWidth, setWindowWidth] = createSignal(window.innerWidth);
+  const [windowHeight, setWindowHeight] = createSignal(window.innerHeight);
+
+  const updateWindowWidth = () => {
+    setWindowWidth(window.innerWidth);
+  };
+
+  const updateWindowHeight = () => {
+    setWindowHeight(window.innerHeight);
+  };
+
+  // ウィンドウの大きさが変わったら、query resultの大きさを再計算させる
+  window.addEventListener("resize", updateWindowWidth);
+  window.addEventListener("resize", updateWindowHeight);
+
+  // お掃除
+  onCleanup(() => {
+    window.removeEventListener("resize", updateWindowWidth);
+    window.removeEventListener("resize", updateWindowHeight);
+  });
+
+  // query resultの幅を計算する
+  const maxQueryResultWidth = createMemo(() => {
+    return (windowWidth() - 12 * 16) / 16;
+  }, windowWidth());
+  // query resultの高さを計算する
+  const maxQueryResultHeight = createMemo(() => {
+    return (windowHeight() - 23 * 16) / 16;
+  }, windowHeight());
 
   let editor: EditorView | undefined;
   let editorContainer: HTMLDivElement | undefined;
@@ -186,9 +225,15 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
         <Alert variant={"danger"}>{queryError()}</Alert>
       </Show>
       <Show when={queryResult().rows.length > 0}>
-        <div style={{ flex: "0 1 auto", overflow: "auto" }}>
+        <div
+          style={{
+            overflow: "auto",
+            "max-height": `${maxQueryResultHeight()}rem`,
+            "max-width": `${maxQueryResultWidth()}rem`,
+          }}
+        >
           <Table striped bordered hover class="mt-3">
-            <thead>
+            <thead class="sticky-top">
               <tr>
                 {queryResult().columns.map((column, idx) => (
                   <th>{column}</th>
