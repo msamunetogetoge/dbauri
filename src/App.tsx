@@ -66,7 +66,9 @@ const AppContent: Component<{
         const connections = connectionStatus();
         for (const connection of connections) {
           if (connection.status === "connected") {
-            await invoke("disconnect_all_connections");
+            await invoke("disconnect_from_database", {
+              id: connection.id,
+            });
           }
         }
       }
