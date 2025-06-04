@@ -35,7 +35,7 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
     columns: [],
     rows: [],
   });
-  const [showQuertyEditor, setShowQueryEditor] = createSignal(true);
+  const [showQueryEditor, setShowQueryEditor] = createSignal(true);
   const [queryEditorHeight, setQueryEditorHeight] =
     createSignal<string>(QueryEditorHeight);
 
@@ -143,14 +143,14 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
   };
 
   const toggleEditorVisibility = () => {
-    if (showQuertyEditor()) {
+    if (showQueryEditor()) {
       editor = undefined;
     }
-    setShowQueryEditor(!showQuertyEditor());
+    setShowQueryEditor(!showQueryEditor());
   };
 
   createEffect(() => {
-    if (showQuertyEditor() && editorContainer && !editor) {
+    if (showQueryEditor() && editorContainer && !editor) {
       // エディターを再度開いたときに内容を復元
       editor = new EditorView({
         doc: query(),
@@ -183,9 +183,9 @@ const QueryEditor: Component<{ connectionId?: string; value?: string }> = (
         variant="secondary"
         style={{ "align-self": "flex-start" }}
       >
-        {showQuertyEditor() ? "Hide Editor" : "Show Editor"}
+        {showQueryEditor() ? "Hide Editor" : "Show Editor"}
       </Button>
-      <Show when={showQuertyEditor()}>
+      <Show when={showQueryEditor()}>
         <div style={{ position: "relative", border: "1px solid #ccc" }}>
           <div
             ref={editorContainer}
